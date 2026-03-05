@@ -1,86 +1,117 @@
-# Enthropic spec — full e-commerce platform
-VERSION 0.1.0
+VERSION 0.2.0
 
 PROJECT
-  NAME   "Shop"
-  STACK  python, fastapi, postgresql, react, stripe, redis
-  ARCH   layered
+  NAME   "shop"
   LANG   python
+  STACK  fastapi, postgresql, redis, react
+  ARCH   layered
+  DEPS
+    SYSTEM   libpq
+    RUNTIME  fastapi, sqlalchemy, redis, celery
+    DEV      pytest, ruff
 
 VOCABULARY
-  AuthToken       # never: auth_token, JwtToken, accessToken, jwt
+  AuthToken       # never: auth_token, jwt, accessToken, JwtToken
   UserId          # never: user_id, uid, uuid
-  CartTotal       # never: cart_total, total_price, order_amount
-  OrderStatus     # never: order_state, status, order_status
-  ProductSku      # never: sku, product_id, item_id, pid
-  PaymentIntent   # never: payment_id, charge, transaction, pi
+  CartTotal       # never: total, cart_total, order_amount
+  OrderStatus     # never: status, order_state, state
+  ProductSku      # never: sku, pid, product_id, item_id
+  PaymentIntent   # never: payment_id, charge, transaction
 
-ENTITY user, product, cart, order, payment, session, admin, inventory, review, notification, checkout, credentials, token
+ENTITY user, product, cart, order, payment, session, admin, inventory, notification
 
 TRANSFORM
   user      -> cart         : add_product, remove_product, update_quantity
   cart      -> order        : checkout
-  order     -> payment      : process
+  order     -> payment      : charge
   payment   -> order        : confirm, fail
-  admin     -> product      : create, update, delete, archive
-  admin     -> review       : approve, reject
-  user      -> review       : post
-  inventory -> product      : restock
+  admin     -> product      : create, update, delete
   order     -> notification : send
   order     -> inventory    : reserve, release
 
+SECRETS
+  DB_URL          -> STORAGE
+  PAYMENT_KEY     -> PAYMENT
+  AUTH_SECRET     -> SERVICE
+  CACHE_URL       -> SERVICE
+
+CLASSIFY
+  user.password       credential
+  session.token       credential
+  user.email          pii
+  user.phone          pii
+  payment.token       sensitive
+  payment.method      sensitive
+
 LAYERS
   FRONTEND
-    CAN     display_product, display_cart, display_order, submit_form
-    CANNOT  calculate_total, process_payment, access_inventory
-    CALLS   BACKEND
-    NEVER   store_auth_token_in_localStorage
-    NEVER   trust_server_response_without_validation
+    BOUNDARY  external
+    EXPOSES   browse_products, add_to_cart, checkout, login, get_order_status
+    CALLS     BACKEND
+    NEVER     calculate_total
+    NEVER     store_session_token_in_localstorage
 
   BACKEND
-    OWNS    business_logic, pricing, auth, payment_orchestration
-    CALLS   DATABASE, STRIPE
-    NEVER   trust_client_total
-    NEVER   store_plaintext_credentials
-    NEVER   expose_database_connection
+    OWNS      business_logic, pricing, auth
+    CALLS     STORAGE, PAYMENT, CACHE
+    NEVER     trust_client_total
+    NEVER     expose_db_connection
 
-  DATABASE
-    OWNS    persistence, referential_integrity, migrations
-    NEVER   execute_business_logic
-    NEVER   expose_direct_connection_to_frontend
+  STORAGE
+    OWNS      persistence, migrations
+    CALLS     DATABASE
+    NEVER     execute_business_logic
 
-  STRIPE
-    OWNS    payment_processing, pci_compliance, card_data
-    NEVER   receive_raw_card_data_from_backend
+  PAYMENT
+    OWNS      payment_orchestration
+    NEVER     store_raw_card_data
+    NEVER     log_payment_token
+
+  CACHE
+    OWNS      session_storage, rate_limiting
+    NEVER     store_business_data
 
 CONTRACTS
-  checkout.total         ALWAYS   server-side
-  payment.credentials    NEVER    backend-stored
-  session.token          NEVER    plaintext
-  session.token          NEVER    localStorage
-  admin.*                REQUIRES verified-admin-role
-  review.visibility      REQUIRES admin-approval
-  review.posting         REQUIRES verified-purchase
-  inventory.stock        NEVER    negative
-  order.total            ALWAYS   matches-cart-snapshot-at-checkout-time
-  product.price          ALWAYS   non-negative
+  checkout.total        ALWAYS    server-side
+  session.token         NEVER     plaintext
+  admin.*               REQUIRES  verified-admin-role
+  inventory.stock       NEVER     negative
+  order.total           ALWAYS    matches-cart-snapshot
 
   FLOW checkout
-    1. cart.validate             # items exist, prices current, stock available
-    2. order.create              # server creates order with locked prices
-    3. payment.authorize         # stripe pre-authorization, no charge yet
-    4. inventory.reserve         # lock stock for this order
-    5. payment.capture           # complete the charge
-    6. order.confirm             # transition OrderStatus to confirmed
-    7. inventory.decrement       # reduce available stock
-    8. notification.send         # confirmation email to user
+    1.  [BACKEND] cart.validate
+    2.  [BACKEND] order.create
+    3.  [PAYMENT] payment.charge
+    4.  [STORAGE] inventory.reserve
+    5.  [PAYMENT] payment.confirm
+    6.  [BACKEND] order.confirm
+    7.  [STORAGE] inventory.release
+    8.  [BACKEND] notification.send
     ROLLBACK  payment.void, inventory.release, order.cancel
     ATOMIC    true
     TIMEOUT   30s
+    RETRY     1
 
-  FLOW user_auth
-    1. credentials.validate      # email exists, password hash matches
-    2. session.create            # server-side session record in redis
-    3. token.issue               # signed JWT, httpOnly cookie only
+  FLOW login
+    1. [BACKEND] user.authenticate
+    2. [CACHE]   session.create
+    3. [BACKEND] session.token.issue
     ROLLBACK  session.destroy
     ATOMIC    true
+    TIMEOUT   5s
+
+OBSERVABILITY
+  flow checkout
+    level:         critical
+    must-log:      user_id, order_id, order_total, result
+    must-not-log:  payment_token, card_number, auth_secret
+    metrics:       latency_p99, error_rate, conversion_rate
+
+  flow login
+    level:         standard
+    must-not-log:  password, session_token
+    metrics:       latency_p99, failure_rate
+
+CHANGELOG
+  0.2.0
+    ADDED initial spec

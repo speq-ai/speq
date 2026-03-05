@@ -1,169 +1,165 @@
-# Enthropic Specification v0.1.0
+# Enthropic Specification v0.2
 
-## 1. What It Is
+## 1. Purpose
 
-Enthropic is a declarative format specification for AI-assisted development.
+A `.enth` file is the complete architectural contract of a software project. It is read by an AI agent before generating any code. It defines what exists, what is true, and what is forbidden.
 
-A `.enth` file is the complete architectural map of a project. It is read by an AI agent
-before generating any code. It eliminates entropy by making all architectural decisions
-explicit, permanent, and machine-readable.
-
-A `.enth` file is not code. It does not generate code by itself. It collapses the space
-of acceptable code an AI can generate — leaving only the region consistent with the
-decisions already made.
+An agent must treat the spec as a closed world. Anything not declared does not exist. Anything declared is binding.
 
 ---
 
 ## 2. Design Principles
 
-**Closed world assumption.**
-Anything not declared in the spec does not exist for the AI agent. The boundary is
-implicit in the scope of the declaration, not a separate construct.
+**Closed world.** Entities, layers, transforms, secrets, vocabulary, and classifications not declared in the spec do not exist. An agent must not introduce any element absent from the spec.
 
-**Constraints over instructions.**
-The spec does not tell the AI *how* to build. It defines what must be true regardless
-of how. Choices that are not constrained are left to the AI's judgment within the
-declared scope.
+**Constraints over instructions.** The spec declares what must be true, not how to achieve it. Unconstrained choices belong to the agent, within declared scope.
 
-**Reproducibility.**
-Given the same `.enth` file, two independent AI agents — in different sessions, on
-different machines — must produce architecturally equivalent results. Structural
-decisions are identical. Implementation details may vary within the constraints.
+**Reproducibility.** Two independent agents reading the same spec must produce architecturally equivalent results. Structural decisions are fixed. Implementation details may vary within constraints.
 
-**Human-readable, machine-parseable.**
-Purpose-built DSL. Uppercase keywords, lowercase identifiers, minimal punctuation.
-No indentation ambiguity. Unambiguous at a glance.
+**Formal and unambiguous.** Purpose-built DSL. No natural language constructs are used as load-bearing syntax. No inference is permitted where a rule exists.
+
+**Immutability.** The spec is read-only for any agent. An agent must not create, edit, or delete a `.enth` file unless the user explicitly requests it in that session. Modifying the spec to reconcile it with generated code is an unconditional security violation.
 
 ---
 
-## 3. Two Primitives
+## 3. Primitives
 
-Everything in Enthropic is built on exactly two primitives.
+Two primitives underlie the entire format.
 
-### CONTEXT
+**CONTEXT** declares everything that exists: entities, relationships, technology stack, canonical names, organizational layers, and data classifications.
 
-The closed world. Declares everything that exists in the project: entities, directed
-relationships between them, the technology stack, canonical names, and organizational
-layers. What is not declared in CONTEXT does not exist in the project's conceptual model.
+**CONTRACTS** declares everything that must be true regardless of implementation. A contract violation means generated code is rejected, unconditionally.
 
-### CONTRACTS
+Four first-class constructs are derived from these primitives:
 
-The invariants. Declares everything that must be true regardless of implementation:
-behavioral constraints, sequential requirements, and responsibility boundaries. A contract
-violation means the generated code is unacceptable — no exceptions, no overrides.
-
-**Four first-class derived constructs** extend these primitives with readable syntax for
-patterns that appear in every non-trivial project:
-
-| Construct | Primitive | What it adds |
-|---|---|---|
-| `PROJECT` | CONTEXT | Technology meta-context (stack, arch, language) |
-| `VOCABULARY` | CONTEXT | Canonical naming registry for this project |
-| `LAYERS` | CONTEXT + CONTRACTS | Organizational boundaries and responsibility rules |
-| `FLOWS` | CONTRACTS | Ordered critical sequences with rollback semantics |
+| Construct  | Primitive          | Purpose                                        |
+|------------|--------------------|------------------------------------------------|
+| PROJECT    | CONTEXT            | Technology stack and architecture style        |
+| VOCABULARY | CONTEXT            | Canonical naming registry                      |
+| LAYERS     | CONTEXT+CONTRACTS  | Organizational boundaries and responsibility   |
+| FLOWS      | CONTRACTS          | Ordered critical sequences with rollback       |
 
 These are not optional extensions. They are part of the core grammar.
 
 ---
 
-## 4. Format Foundation
+## 4. Format
 
-- **File extension:** `.enth`
+- **Extension:** `.enth`
 - **Encoding:** UTF-8
 - **Comments:** `#` to end of line, ignored by parser
 - **Keywords:** `UPPERCASE`
-- **Entity identifiers:** `snake_case`
-- **Vocabulary (canonical names):** `PascalCase`
+- **Identifiers:** `snake_case`
+- **Canonical names:** `PascalCase`
 - **Layer names:** `UPPER_CASE`
 - **Indentation:** two spaces per level (tabs accepted)
 
 ---
 
-## 5. Formal Grammar (EBNF)
+## 5. Grammar (EBNF)
 
 ```ebnf
-file            = statement* EOF
+file                = statement* EOF
 
-statement       = comment
-                | blank_line
-                | version_stmt
-                | project_block
-                | vocabulary_block
-                | secrets_block
-                | entity_stmt
-                | transform_block
-                | layers_block
-                | contracts_block
+statement           = comment
+                    | blank_line
+                    | version_stmt
+                    | project_block
+                    | entity_stmt
+                    | vocabulary_block
+                    | secrets_block
+                    | transform_block
+                    | layers_block
+                    | contracts_block
+                    | classify_block
+                    | observability_block
+                    | changelog_block
 
-comment         = "#" <any characters to end of line> NEWLINE
-blank_line      = NEWLINE
+comment             = "#" <any characters to end of line> NEWLINE
+blank_line          = NEWLINE
 
-(* ── Version ───────────────────────────────────────── *)
+(* Version *)
 
-version_stmt    = "VERSION" semver NEWLINE
-semver          = digit+ "." digit+ "." digit+
+version_stmt        = "VERSION" semver NEWLINE
+semver              = digit+ "." digit+ "." digit+
 
-(* ── CONTEXT-derived constructs ────────────────────── *)
+(* CONTEXT-derived *)
 
-project_block   = "PROJECT" NEWLINE project_stmt+
-project_stmt    = INDENT project_key value NEWLINE
-                | INDENT "DEPS" NEWLINE dep_stmt+
-project_key     = "NAME" | "STACK" | "ARCH" | "LANG"
-value           = word ("," word)*
+project_block       = "PROJECT" NEWLINE project_stmt+
+project_stmt        = INDENT project_key value NEWLINE
+                    | INDENT "DEPS" NEWLINE dep_stmt+
+project_key         = "NAME" | "LANG" | "STACK" | "ARCH"
+value               = word ("," word)*
 
-dep_stmt        = INDENT INDENT dep_key value NEWLINE
-dep_key         = "SYSTEM" | "RUNTIME" | "DEV"
+dep_stmt            = INDENT INDENT dep_key value NEWLINE
+dep_key             = "SYSTEM" | "RUNTIME" | "DEV"
 
-secrets_block   = "SECRETS" NEWLINE secret_entry+
-secret_entry    = INDENT identifier comment? NEWLINE
+entity_stmt         = "ENTITY" identifier ("," identifier)* NEWLINE
 
-vocabulary_block = "VOCABULARY" NEWLINE vocab_entry+
-vocab_entry     = INDENT PascalName comment? NEWLINE
+vocabulary_block    = "VOCABULARY" NEWLINE vocab_entry+
+vocab_entry         = INDENT PascalName comment? NEWLINE
 
-entity_stmt     = "ENTITY" name_list NEWLINE
-name_list       = identifier ("," identifier)*
+secrets_block       = "SECRETS" NEWLINE secret_entry+
+secret_entry        = INDENT identifier ("->" layer_name)? comment? NEWLINE
 
-transform_block = "TRANSFORM" NEWLINE transform_rule+
-transform_rule  = INDENT identifier "->" identifier ":" action_list NEWLINE
-action_list     = identifier ("," identifier)*
+transform_block     = "TRANSFORM" NEWLINE transform_rule+
+transform_rule      = INDENT identifier "->" identifier ":" identifier ("," identifier)* NEWLINE
 
-layers_block    = "LAYERS" NEWLINE layer_def+
-layer_def       = INDENT layer_name NEWLINE layer_stmt+
-layer_stmt      = INDENT INDENT layer_kw value NEWLINE
-layer_kw        = "OWNS" | "CAN" | "CANNOT" | "CALLS" | "NEVER" | "LATENCY"
+layers_block        = "LAYERS" NEWLINE layer_def+
+layer_def           = INDENT layer_name NEWLINE layer_stmt+
+layer_stmt          = INDENT INDENT layer_kw value NEWLINE
+layer_kw            = "OWNS" | "CAN" | "CANNOT" | "CALLS"
+                    | "NEVER" | "BOUNDARY" | "EXPOSES" | "LATENCY"
 
-(* ── CONTRACTS-derived constructs ──────────────────── *)
+classify_block      = "CLASSIFY" NEWLINE classify_entry+
+classify_entry      = INDENT subject classify_class comment? NEWLINE
+classify_class      = "credential" | "pii" | "sensitive" | "internal"
 
-contracts_block = "CONTRACTS" NEWLINE contracts_body+
-contracts_body  = contract_rule | flow_block
+(* CONTRACTS-derived *)
 
-contract_rule   = INDENT subject constraint comment? NEWLINE
-subject         = identifier ("." (identifier | "*"))*
-constraint      = always_c | never_c | requires_c
-always_c        = "ALWAYS" qualifier
-never_c         = "NEVER" qualifier
-requires_c      = "REQUIRES" condition
-qualifier       = word+
-condition       = word (("-" | "_") word)*
+contracts_block     = "CONTRACTS" NEWLINE contracts_body+
+contracts_body      = contract_rule | flow_block
 
-flow_block      = INDENT "FLOW" identifier NEWLINE flow_content+
-flow_content    = flow_step | flow_meta
-flow_step       = INDENT INDENT digit+ "." subject "." identifier comment? NEWLINE
-flow_meta       = INDENT INDENT flow_key value NEWLINE
-flow_key        = "ROLLBACK" | "ATOMIC" | "TIMEOUT" | "RETRY"
+contract_rule       = INDENT subject constraint comment? NEWLINE
+subject             = identifier ("." (identifier | "*"))*
+constraint          = "ALWAYS" qualifier
+                    | "NEVER" qualifier
+                    | "REQUIRES" condition
+qualifier           = word+
+condition           = word (("-" | "_") word)*
 
-(* ── Terminals ─────────────────────────────────────── *)
+flow_block          = INDENT "FLOW" identifier NEWLINE flow_content+
+flow_content        = flow_step | flow_meta
+flow_step           = INDENT INDENT digit+ "." layer_tag? subject comment? NEWLINE
+layer_tag           = "[" layer_name "]"
+flow_meta           = INDENT INDENT flow_key value NEWLINE
+flow_key            = "ROLLBACK" | "ATOMIC" | "TIMEOUT" | "RETRY"
 
-identifier      = lower (lower | digit | "_")*
-PascalName      = upper (alpha | digit)*
-layer_name      = upper (upper | digit | "_")*
-word            = alpha (alpha | digit | "-" | "_")*
-semver          = digit+ "." digit+ "." digit+
-digit           = "0".."9"
-lower           = "a".."z"
-upper           = "A".."Z"
-alpha           = lower | upper
-INDENT          = "  "   (* two spaces *)
+(* Observability *)
+
+observability_block = "OBSERVABILITY" NEWLINE obs_entry+
+obs_entry           = INDENT "flow" identifier NEWLINE obs_stmt+
+obs_stmt            = INDENT INDENT obs_key ":" value NEWLINE
+obs_key             = "level" | "must-log" | "must-not-log" | "metrics"
+
+(* Changelog *)
+
+changelog_block     = "CHANGELOG" NEWLINE changelog_version+
+changelog_version   = INDENT semver NEWLINE changelog_entry*
+changelog_entry     = INDENT INDENT changelog_kw <rest of line> NEWLINE
+changelog_kw        = "BREAKING" | "ADDED" | "CHANGED" | "DEPRECATED"
+
+(* Terminals *)
+
+identifier          = lower (lower | digit | "_")*
+PascalName          = upper (alpha | digit)*
+layer_name          = upper (upper | digit | "_")*
+word                = alpha (alpha | digit | "-" | "_")*
+digit               = "0".."9"
+lower               = "a".."z"
+upper               = "A".."Z"
+alpha               = lower | upper
+INDENT              = "  "
 ```
 
 ---
@@ -172,296 +168,236 @@ INDENT          = "  "   (* two spaces *)
 
 ### VERSION
 
-Must be the first non-comment statement in the file.
+Must be the first non-comment, non-blank statement in every `.enth` file.
 
 ```
-VERSION 0.1.0
-```
-
----
-
-### PROJECT *(CONTEXT-derived)*
-
-Declares the technology context. Stack choices made here are binding. The AI does not
-suggest alternatives or second-guess these decisions.
-
-| Key | Type | Meaning |
-|---|---|---|
-| `NAME` | string | Human-readable project name |
-| `STACK` | list | Technologies in use, comma-separated |
-| `ARCH` | word | Architecture style (`layered`, `event-driven`, `realtime`, `offline-first`, etc.) |
-| `LANG` | word | Primary implementation language |
-
-#### `DEPS` sub-block *(optional)*
-
-Declares dependencies by installation level. Distinguishes what must exist at the OS
-level from what the package manager handles — a distinction `STACK` cannot express.
-
-| Key | Level | Examples |
-|---|---|---|
-| `SYSTEM` | OS-level. Must exist before any install step. Not managed by the language package manager. | `tcl-tk`, `libpq`, `openssl`, `rust-toolchain` |
-| `RUNTIME` | Language package manager. Deployed to production. | `fastapi`, `stripe`, `react` |
-| `DEV` | Development only. Never in production. | `pytest`, `ruff`, `typescript` |
-
-```
-PROJECT
-  NAME   "WorldClock"
-  STACK  python, tkinter, zoneinfo
-  ARCH   layered
-  LANG   python
-
-  DEPS
-    SYSTEM   tcl-tk
-    RUNTIME  zoneinfo
-    DEV      pytest
-```
-
-```
-PROJECT
-  NAME   "CNC Controller"
-  STACK  c, linux_kernel, posix_realtime
-  ARCH   realtime
-  LANG   c
+VERSION 0.2.0
 ```
 
 ---
 
-### VOCABULARY *(CONTEXT-derived)*
+### PROJECT
 
-Declares the canonical names for this project. Every entry is the sole acceptable form
-for that concept across all generated code, comments, file names, and identifiers.
-Naming drift is a contract violation.
+Declares the technology context of the project. All choices are binding. An agent must not suggest alternatives or deviate from the declared stack, language, or architecture.
+
+| Key   | Type   | Meaning                                                              |
+|-------|--------|----------------------------------------------------------------------|
+| NAME  | string | Project name                                                         |
+| LANG  | word   | Primary implementation language                                      |
+| STACK | list   | Technologies in use, comma-separated                                 |
+| ARCH  | word   | Architecture style                                                   |
+
+Common `ARCH` values: `layered`, `event-driven`, `realtime`, `offline-first`, `hexagonal`. Not an exhaustive list.
+
+**DEPS** declares dependencies by installation level. This distinction cannot be expressed by STACK alone.
+
+| Key     | Level                                                              |
+|---------|--------------------------------------------------------------------|
+| SYSTEM  | OS-level. Must exist before any install step.                      |
+| RUNTIME | Managed by the language package manager. Deployed to production.   |
+| DEV     | Development only. Must not be present in production.               |
+
+---
+
+### ENTITY
+
+Declares all domain entities. The closed world assumption is absolute: entities not listed here do not exist in this project's model. An agent must not create, reference, or infer entities outside this list.
+
+All identifiers must be `snake_case`.
+
+---
+
+### VOCABULARY
+
+Declares the canonical name for every concept in the project. Each entry is the sole acceptable form across all generated code, file names, variable names, comments, and identifiers. Any deviation is a contract violation.
 
 Entries are `PascalCase`. Comments document what must never be used instead.
 
-```
-VOCABULARY
-  AuthToken       # never: auth_token, JwtToken, accessToken, jwt
-  UserId          # never: user_id, uid, uuid
-  OrderStatus     # never: order_state, status, order_status
-```
+---
+
+### SECRETS
+
+Declares the names of all secrets the project requires. This block declares existence only. Values are never written in the spec or any committed file.
+
+`-> LAYER_NAME` scopes a secret to a single layer. An agent must not reference a scoped secret from any other layer. Scoping is a contract, not a convention.
 
 ---
 
-### ENTITY *(CONTEXT)*
+### TRANSFORM
 
-Declares all domain entities. The closed world assumption applies: entities not listed
-here do not exist in this project's model.
-
-All entity names must be `snake_case` and must be declared before being referenced
-in `TRANSFORM`, `LAYERS`, or `CONTRACTS`.
-
-```
-ENTITY user, product, cart, order, payment, session, admin
-```
+Declares all valid directed interactions between entities. Each rule takes the form `source -> target : action(s)`. Only declared transforms are valid. An agent must not generate code for undeclared interactions.
 
 ---
 
-### TRANSFORM *(CONTEXT)*
+### LAYERS
 
-Declares directed relationships between entities. Each rule defines one valid
-interaction path: `source -> target : action(s)`.
+Declares the organizational structure of the system. Layers define ownership, permitted interactions, and absolute prohibitions.
 
-Multiple actions on the same transform are comma-separated. Only declared transforms
-are valid. Undeclared interactions do not exist.
+| Key      | Meaning                                                                                  |
+|----------|------------------------------------------------------------------------------------------|
+| OWNS     | Sole owner of the listed capabilities. No other layer may implement them.                |
+| CAN      | Operations this layer is permitted to perform.                                           |
+| CANNOT   | Operations explicitly forbidden to this layer.                                           |
+| CALLS    | Permitted call targets. Exclusive: calls to any unlisted layer are forbidden.            |
+| NEVER    | Absolute prohibition. Equivalent to a CONTRACTS rule scoped to this layer.               |
+| BOUNDARY | `external` marks the single entry point for untrusted input. All input must be validated before crossing any layer boundary. At most one layer may declare `BOUNDARY external`. |
+| EXPOSES  | Operations accessible from outside the system. Everything not listed is internal.        |
+| LATENCY  | Maximum acceptable latency for this layer. Applies to realtime architectures.            |
 
-```
-TRANSFORM
-  user  -> cart    : add_product, remove_product
-  cart  -> order   : checkout
-  admin -> product : create, update, delete
-```
-
----
-
-### SECRETS *(CONTEXT)*
-
-Declares the key names of all secrets this project requires. Declaring a name here
-is the complete obligation — values are never written anywhere in the spec.
-
-**Why this block exists:**
-- The AI always knows *what* secrets the project needs, from the spec
-- Values never pass through chat, never appear in version control, never in logs
-- The vault status file (`vault_[name].enth`) mirrors this list with `SET` / `UNSET` per key
-- Actual values live encrypted in `~/.enthropic/[project].secrets` — never in the repo
-
-```
-SECRETS
-  DATABASE_URL     # postgres connection string
-  STRIPE_KEY       # stripe secret key
-  JWT_SECRET       # signing key for AuthToken
-```
+`CALLS` is exclusive. If a layer declares `CALLS`, calls to any layer not on that list are forbidden.
 
 ---
 
-### LAYERS *(CONTEXT + CONTRACTS derived)*
+### CLASSIFY
 
-Declares the organizational layers of the system, their ownership, permitted
-interactions, and absolute prohibitions.
+Declares the security classification of entity fields. Classifications are enforced across the entire spec and supersede any conflicting instruction.
 
-| Key | Meaning |
-|---|---|
-| `OWNS` | Sole owner of these capabilities. No other layer may implement them. |
-| `CAN` | Permitted operations for this layer. |
-| `CANNOT` | Explicitly forbidden. Stronger than not listing: actively prohibited. |
-| `CALLS` | Permitted dependencies. Unlisted layers may not be called. |
-| `NEVER` | Absolute prohibition, contract-level. Equivalent to a CONTRACTS rule. |
-| `LATENCY` | For realtime layers: maximum acceptable latency. |
+| Class      | Agent must                                    | Agent must never                                                    |
+|------------|-----------------------------------------------|---------------------------------------------------------------------|
+| credential | Encrypt at rest. Never log under any context. | Include in responses, error messages, logs, or traces.              |
+| pii        | Handle with data-privacy compliance.          | Log raw. Expose in API responses without explicit declaration.       |
+| sensitive  | Restrict to the owning layer.                 | Include in stack traces or debug output.                            |
+| internal   | Keep within the owning layer.                 | Expose outside system boundaries.                                   |
 
-```
-LAYERS
-  BACKEND
-    OWNS    business_logic, auth, payment_orchestration
-    CALLS   DATABASE, STRIPE
-    NEVER   trust_client_calculated_total
-    NEVER   store_plaintext_credentials
-```
+A field classified as `credential` is implicitly `must-not-log` in all contexts, regardless of OBSERVABILITY declarations.
 
 ---
 
-### CONTRACTS *(CONTRACTS)*
+### CONTRACTS
 
-Declares behavioral invariants. Each rule applies a constraint to a subject.
+Declares behavioral invariants. Each rule applies a constraint to a subject. A violated contract means the generated code is unacceptable, unconditionally.
 
-Wildcards: `entity.*` applies to all operations involving that entity.
+`entity.*` applies the constraint to all operations on that entity.
 
-| Keyword | Meaning |
-|---|---|
-| `ALWAYS` | This condition must hold at all times. |
-| `NEVER` | This state must never occur. |
-| `REQUIRES` | This precondition must be satisfied before the operation proceeds. |
-
-```
-CONTRACTS
-  checkout.total       ALWAYS   server-side
-  payment.credentials  NEVER    backend-stored
-  admin.*              REQUIRES verified-admin-role
-```
+| Keyword  | Meaning                                                               |
+|----------|-----------------------------------------------------------------------|
+| ALWAYS   | This condition must hold at all times.                                |
+| NEVER    | This state must never occur.                                          |
+| REQUIRES | This precondition must be satisfied before the operation proceeds.    |
 
 ---
 
-### FLOW *(CONTRACTS-derived)*
+### FLOW
 
-Declares an ordered critical sequence. Steps are numbered, must execute in the
-declared order, and are part of the CONTRACTS block.
+Declares an ordered critical sequence. Flows are declared inside a CONTRACTS block and are subject to the same enforcement rules as contract rules.
 
-| Meta-key | Meaning |
-|---|---|
-| `ROLLBACK` | Comma-separated operations to execute on failure, in listed order. |
-| `ATOMIC` | `true`: entire flow must succeed or fully roll back. `false`: partial completion is acceptable. |
-| `TIMEOUT` | Maximum wall-clock duration for the complete flow. |
-| `RETRY` | Retry policy on transient failure. |
+Steps are numbered from 1, sequential, with no gaps. Minimum 2 steps.
 
-```
-CONTRACTS
-  FLOW checkout
-    1. cart.validate
-    2. order.create
-    3. payment.authorize
-    4. inventory.reserve
-    5. payment.capture
-    6. order.confirm
-    7. inventory.decrement
-    8. notification.send
-    ROLLBACK  payment.void, inventory.release, order.cancel
-    ATOMIC    true
-    TIMEOUT   30s
-```
+`[LAYER_NAME]` on a step pins that step to the named layer. An agent must implement the step in that layer. If omitted, the agent assigns the step consistent with the LAYERS declaration.
+
+| Key      | Meaning                                                                       |
+|----------|-------------------------------------------------------------------------------|
+| ROLLBACK | Operations executed on failure, in listed order.                              |
+| ATOMIC   | `true`: all steps succeed or the flow fully rolls back. `false`: partial ok.  |
+| TIMEOUT  | Maximum wall-clock duration for the complete flow.                            |
+| RETRY    | Number of retries permitted on transient failure.                             |
 
 ---
 
-## 7. Project File System
+### OBSERVABILITY
 
-| File | Purpose | Committed |
-|---|---|---|
-| `enthropic.enth` | The spec. Single source of truth. Declares secret key names (never values). | Yes |
-| `state_[name].enth` | Runtime state. What is built, what is pending. Includes CHECKS for DEPS. | No |
-| `vault_[name].enth` | Secret key status mirror (`SET` / `UNSET`). Human-readable. No values. | Never |
-| `~/.enthropic/[name].key` | Fernet encryption key. Never leaves the machine. chmod 600. | Never |
-| `~/.enthropic/[name].secrets` | Encrypted JSON blob with actual secret values. Never in repo. | Never |
+Declares logging and metrics contracts per flow. These are contracts, not suggestions.
 
-All non-committed files are auto-created by `enthropic validate`.
+A field classified `credential` in CLASSIFY is `must-not-log` in all flows, whether declared here or not. An agent must not log it regardless of this block.
+
+| Key          | Meaning                                              |
+|--------------|------------------------------------------------------|
+| level        | Severity: `critical`, `standard`, or `low`.          |
+| must-log     | Fields that must always be recorded for this flow.   |
+| must-not-log | Fields that must never be recorded for this flow.    |
+| metrics      | Metrics that must be emitted for this flow.          |
+
+---
+
+### CHANGELOG
+
+Records the evolution of this spec file. The full changelog is included in AI context blocks so an agent knows what changed between versions and can reason about migrations correctly.
+
+Valid entry keywords:
+
+| Keyword    | Meaning                                                   |
+|------------|-----------------------------------------------------------|
+| BREAKING   | A change that invalidates previously generated code.      |
+| ADDED      | A new construct, entity, layer, or contract.              |
+| CHANGED    | A modification to an existing declaration.                |
+| DEPRECATED | A construct retained for compatibility but to be removed. |
+
+---
+
+## 7. File System
+
+| File                 | Purpose                                            | Committed |
+|----------------------|----------------------------------------------------|-----------|
+| `[name].enth`        | The spec. Single source of truth.                  | Yes       |
+| `state_[name].enth`  | Build progress per entity, flow, and layer.        | No        |
 
 ### state_[name].enth
 
-Tracks build progress and environment check status. Generated from the spec.
+Generated from the spec. Tracks build progress. Generated automatically by the tool on first `check`.
+
+Status values for CHECKS: `UNVERIFIED`, `OK`, `FAILED`.
+Status values for entities, flows, and layers: `PENDING`, `PARTIAL`, `BUILT`.
+
+All CHECKS must reach `OK` before any entity may be marked `BUILT`.
 
 ```
-STATE project_name
+STATE [name]
 
   CHECKS
-    python                       UNVERIFIED   # LANG
-    tcl-tk                       UNVERIFIED   # DEPS.SYSTEM
-    requests                     UNVERIFIED   # DEPS.RUNTIME
+    [lang]        UNVERIFIED
+    [dep.system]  UNVERIFIED
+    [dep.runtime] UNVERIFIED
 
   ENTITY
-    user                         PENDING
-    session                      PENDING
+    [entity]      PENDING
 
   FLOWS
-    login                        PENDING
+    [flow]        PENDING
 
   LAYERS
-    BACKEND                      PENDING
-    DATABASE                     PENDING
-```
-
-All CHECKS must reach `OK` before any ENTITY can be marked `BUILT`.
-
-### vault_[name].enth
-
-Tracks secret key status. Never contains values. Generated and refreshed from spec.
-
-```
-VAULT project_name
-
-  DATABASE_URL                 UNSET
-  STRIPE_KEY                   SET
-  JWT_SECRET                   UNSET
-```
-
-Values are stored encrypted in `~/.enthropic/[name].secrets` (Fernet AES-128-CBC + HMAC-SHA256).
-The encryption key lives in `~/.enthropic/[name].key` (chmod 600).
-
-Workflow:
-
-```bash
-enthropic vault set DATABASE_URL "postgres://..."    # encrypts + updates status to SET
-enthropic vault keys                                 # lists key names only, never values
-enthropic vault export --out .env                    # explicit decrypt to .env (deployment only)
+    [layer]       PENDING
 ```
 
 ---
 
 ## 8. Validation Rules
 
-A conforming `.enth` file must satisfy all of the following:
+A conforming `.enth` file must satisfy all of the following. A file that fails any rule is rejected.
 
 1. `VERSION` is the first non-comment, non-blank statement.
-2. `ENTITY` must be declared before `TRANSFORM`, `LAYERS`, or `CONTRACTS` reference any entity.
-3. Every entity referenced in `TRANSFORM` is declared in `ENTITY`.
+2. `ENTITY` must appear before any block references an entity identifier.
+3. Every identifier in `TRANSFORM` is declared in `ENTITY`.
 4. Every subject in `CONTRACTS` references a declared entity or uses the `*` wildcard.
-5. Every entity in a `FLOW` step is declared in `ENTITY`.
-6. `FLOW` step numbers are sequential, starting from 1, with no gaps.
+5. Every entity referenced in a `FLOW` step is declared in `ENTITY`.
+6. `FLOW` step numbers are sequential from 1, with no gaps.
 7. Every `FLOW` has at least 2 steps.
 8. `LAYERS` names are `UPPER_CASE`.
 9. `VOCABULARY` entries are `PascalCase`.
 10. `ENTITY` identifiers are `snake_case`.
-11. `VAULT` blocks must not appear in `enthropic.enth`.
-12. A `LAYERS` block that declares `CALLS` may only list layer names declared within the same `LAYERS` block.
-13. `SECRETS` entries must be `UPPER_CASE` identifiers. Values must not appear in the spec.
+11. `CALLS` lists may only reference layer names declared in the same `LAYERS` block.
+12. `SECRETS` entries are `UPPER_CASE`. No value may appear in the spec.
+13. `CALLS` is exclusive. An agent calling a layer not on the `CALLS` list is a contract violation.
+14. At most one layer may declare `BOUNDARY external`.
+15. A `SECRETS` entry scoped with `->` restricts access to the named layer. Access from any other layer is a contract violation.
+16. `CLASSIFY` subjects must match declared entities. The class must be one of `credential`, `pii`, `sensitive`, `internal`.
+17. A field classified `credential` must not appear in `must-log` in any `OBSERVABILITY` entry.
+18. `FLOW` steps that declare `[LAYER_NAME]` must reference a layer declared in `LAYERS`.
 
 ---
 
-## 9. Scope and Domains
+## 9. Scope
 
-Enthropic is **domain-agnostic** and **scale-free**.
+Enthropic is domain-agnostic and scale-free. The grammar is identical for a web service, a desktop application, a realtime controller, or a mobile client. Domain vocabulary and entity names are defined per-project. The primitives and grammar do not change.
 
-The grammar is identical for an e-commerce platform, a CNC machine controller, a
-mobile notes app, a 3D renderer, or an OS kernel. The entities and vocabulary change.
-The primitives do not. Granularity is determined by project scope — a spec can describe
-a full system or a single module.
+An agent's semantic understanding of domain terminology comes from training. The spec does not define term semantics. It declares scope, enforces naming, and constrains behavior.
 
-The AI agent's semantic understanding of domain terminology (what `spindle`, `gcode`,
-`jwt`, `inventory` mean) comes from training. The spec's job is not to define semantics
-— it is to declare scope, enforce naming, and constrain behavior.
+Conforming example specs are in `/examples`.
+
+---
+
+## Roadmap
+
+Deferred:
+
+- `AUDIT` keyword in CONTRACTS: non-repudiation contracts for security-critical operations.
+- `TESTING` block: per-flow coverage requirements and required test categories.

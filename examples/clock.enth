@@ -1,0 +1,48 @@
+VERSION 0.2.0
+
+PROJECT
+  NAME   "clock"
+  LANG   python
+  STACK  python, tkinter
+  ARCH   layered
+  DEPS
+    SYSTEM   tcl-tk
+    RUNTIME  zoneinfo
+    DEV      pytest
+
+VOCABULARY
+  DisplayTime    # never: display_time, time_str, timeString
+  Timezone       # never: tz, timezone_str, zone
+
+ENTITY clock, timezone, display
+
+TRANSFORM
+  clock    -> display   : render
+  timezone -> clock     : set
+
+LAYERS
+  UI
+    BOUNDARY  external
+    EXPOSES   set_timezone, start, stop
+    OWNS      rendering, window_lifecycle
+    CALLS     CORE
+    NEVER     compute_time
+
+  CORE
+    OWNS      timekeeping, timezone_resolution
+    NEVER     access_display_directly
+
+CONTRACTS
+  clock.time     ALWAYS   server-local
+  timezone.*     REQUIRES valid-iana-identifier
+
+  FLOW start
+    1. [CORE] timezone.resolve
+    2. [CORE] clock.init
+    3. [UI]   display.render
+    ATOMIC  false
+    TIMEOUT 2s
+
+CHANGELOG
+  0.2.0
+    ADDED initial spec

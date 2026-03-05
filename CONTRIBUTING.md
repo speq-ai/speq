@@ -1,34 +1,30 @@
-# Contributing to the Enthropic Specification
+# Contributing
 
-## The Spec Is a Contract
+The Enthropic specification is in early development. The format works, but semantic precision and completeness still need serious work. Criticism is as valuable as code — both are welcome.
 
-The Enthropic specification defines a format that must be stable and unambiguous.
-Changes have downstream effects on every parser, every tool, and every `.enth` file ever written.
-Propose carefully.
+## What to contribute
 
-## Types of Contributions
+**Ambiguities** — something in the spec can be read two ways, or a rule does not cover an edge case. Always welcome.
 
-**Clarifications** — the spec is ambiguous or contradictory. Always welcome.
+**Semantic gaps** — a real architectural concern cannot be expressed with the current constructs. Open an issue with a concrete case and a proposed syntax.
 
-**New constructs** — must solve a real problem that cannot be expressed with existing primitives.
-Open an issue first with a concrete use case and a proposed `.enth` example.
+**Grammar corrections** — the EBNF is wrong or incomplete. Open a PR with the fix.
 
-**Grammar fixes** — the EBNF has an error. Open a PR with the fix and a test case.
+**Examples** — a new `.enth` example for a domain not yet covered. Keep it minimal and correct.
 
-**Examples** — new `.enth` examples for real domains. Keep them minimal and correct.
+**Validation rules** — a case that should be a hard error but is not caught.
 
 ## Process
 
 1. Open an issue describing the problem
-2. Discuss in the issue — no code first
-3. If consensus is reached, open a PR with spec changes + updated examples
-4. Grammar changes require an updated EBNF in `SPEC.md`
-5. Version bump follows [semver](https://semver.org/): breaking changes → major, new constructs → minor, fixes → patch
+2. Discuss before writing any spec changes
+3. If there is consensus, open a PR with the change and updated examples
+4. Breaking grammar changes require an updated EBNF in `SPEC.md`
+5. Versioning follows [semver](https://semver.org/): breaking changes → major, new constructs → minor, corrections → patch
 
-## What the Spec Is Not
+## What the spec is not
 
-The spec does not dictate implementation details of tools. It defines the format.
-Tools are free to extend beyond the spec as long as they accept all valid `.enth` files.
+The spec defines a format. It does not dictate how tools implement it. Tools may extend behavior as long as they accept all valid `.enth` files.
 
 ## Questions
 

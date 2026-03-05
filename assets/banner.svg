@@ -1,7 +1,6 @@
 <svg width="840" height="155" viewBox="0 0 840 155" xmlns="http://www.w3.org/2000/svg">
   <rect width="840" height="155" fill="#0f0f1a" rx="12"/>
 
-  <!-- ASCII logo -->
   <text font-family="'Courier New', 'Lucida Console', monospace" font-size="13" fill="#ffafff" xml:space="preserve">
     <tspan x="28" y="30">              __  __                     _     </tspan>
     <tspan x="28" dy="17">  ___  ____  / /_/ /_  _________  ____  (_)____</tspan>
@@ -11,11 +10,5 @@
     <tspan x="28" dy="17">                              /_/              </tspan>
   </text>
 
-  <!-- "tools" badge — filled pink, dark text, same monospace -->
-  <rect x="448" y="60" width="66" height="24" fill="#ffafff" rx="4"/>
-  <text x="455" y="77" font-family="'Courier New', 'Lucida Console', monospace" font-size="13" fill="#0f0f1a" font-weight="bold">tools</text>
-
-  <!-- tagline -->
   <text x="30" y="138" font-family="'Courier New', monospace" font-size="12" fill="#ffafff" opacity="0.5">True spec-driven development</text>
-
 </svg>

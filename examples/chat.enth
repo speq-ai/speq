@@ -1,0 +1,75 @@
+VERSION 0.2.0
+
+PROJECT
+  NAME   "chat"
+  LANG   typescript
+  STACK  node, express, sqlite, openrouter
+  ARCH   layered
+  DEPS
+    RUNTIME  express, better-sqlite3
+    DEV      typescript, esbuild
+
+VOCABULARY
+  ApiKey        # never: api_key, key, openrouter_key, token
+  ModelId       # never: model, model_id, model_name
+  MessageRole   # never: role, sender, type
+  ConversationId  # never: chat_id, session_id, conv_id
+
+ENTITY message, conversation, model, config
+
+TRANSFORM
+  config       -> model        : select
+  conversation -> message      : append
+  message      -> model        : send
+  model        -> message      : respond
+
+SECRETS
+  OPENROUTER_API_KEY  -> SERVICE
+
+CLASSIFY
+  config.api_key  credential
+
+LAYERS
+  UI
+    BOUNDARY  external
+    EXPOSES   send_message, select_model, new_conversation, get_history
+    CALLS     SERVICE
+    NEVER     call_openrouter_directly
+
+  SERVICE
+    OWNS      conversation_logic, model_routing, api_communication
+    CALLS     STORAGE
+    NEVER     expose_api_key_in_response
+    NEVER     log_message_content
+
+  STORAGE
+    OWNS      persistence
+    NEVER     execute_business_logic
+
+CONTRACTS
+  config.api_key      NEVER    logged
+  config.api_key      NEVER    sent_to_client
+  message.*           REQUIRES active-conversation
+  model.selection     REQUIRES valid-openrouter-model-id
+
+  FLOW send_message
+    1. [SERVICE] conversation.validate
+    2. [SERVICE] message.append
+    3. [SERVICE] model.send
+    4. [SERVICE] message.respond
+    5. [STORAGE] conversation.persist
+    ROLLBACK  message.remove
+    ATOMIC    false
+    TIMEOUT   60s
+    RETRY     2
+
+OBSERVABILITY
+  flow send_message
+    level:         standard
+    must-log:      conversation_id, model_id, response_status
+    must-not-log:  api_key, message_content
+    metrics:       latency_p99, error_rate
+
+CHANGELOG
+  0.2.0
+    ADDED initial spec
