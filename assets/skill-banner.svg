@@ -1,5 +1,21 @@
-<svg width="840" height="130" viewBox="0 0 840 130" xmlns="http://www.w3.org/2000/svg">
-  <rect width="840" height="130" fill="#0f0f1a" rx="12"/>
-  <text x="232" y="95" font-family="'Courier New', 'Lucida Console', monospace" font-size="38" fill="#ffafff" opacity="0.7">SpeQ</text>
-  <text x="344" y="95" font-family="'Courier New', 'Lucida Console', monospace" font-size="84" fill="#ffafff" font-weight="700">SKILL</text>
+<svg width="840" height="155" viewBox="0 0 840 155" xmlns="http://www.w3.org/2000/svg">
+  <rect width="840" height="155" fill="#0f0f1a" rx="12"/>
+  <text font-family="'Courier New', 'Lucida Console', monospace" font-size="13" fill="#ffafff" xml:space="preserve">
+    <tspan x="28" y="30">&#160;&#160;&#160;_____            ____  </tspan>
+    <tspan x="28" dy="17">&#160;&#160;/ ___/____  ___  / __ \</tspan>
+    <tspan x="28" dy="17">&#160;&#160;\__ \/ __ \/ _ \/ / / /</tspan>
+    <tspan x="28" dy="17">&#160;___/ / /_/ /  __/ /_/ / </tspan>
+    <tspan x="28" dy="17">/____/ .___/\___/\___\_\ </tspan>
+    <tspan x="28" dy="17">&#160;&#160;&#160;&#160;/_/                  </tspan>
+  </text>
+  <text font-family="'Courier New', 'Lucida Console', monospace" font-size="13" fill="#ff55ff" xml:space="preserve">
+    <tspan x="292" y="30"> ____    _  __   ___    _       _     </tspan>
+    <tspan x="292" dy="17">/ ___|   | |/ /  |_ _|  | |     | |    </tspan>
+    <tspan x="292" dy="17">\___ \   |   &lt;    | |   | |     | |    </tspan>
+    <tspan x="292" dy="17"> ___) |  | |\ \   | |   | |___  | |___ </tspan>
+    <tspan x="292" dy="17">|____/   |_| \_\ |___|  |_____|  |_____|</tspan>
+    <tspan x="292" dy="17">                                        </tspan>
+  </text>
+  <text x="30" y="142" font-family="'Courier New', monospace" font-size="12" fill="#ffafff" opacity="0.5">True spec-driven development</text>
+  <text x="292" y="142" font-family="'Courier New', monospace" font-size="12" fill="#ff55ff" opacity="0.65">&#8594; SKILL.md</text>
 </svg>

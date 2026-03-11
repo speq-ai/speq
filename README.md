@@ -34,4 +34,18 @@ Annotated `.speq` files covering different domains and complexity levels: [examp
 
 ---
 
+## SpeQ SKILL
+
+<p align="center">
+  <img src="assets/skill-banner.svg" alt="SpeQ SKILL"/>
+</p>
+
+The AI behavioral contract for working with `.speq` files. Load it alongside your spec at the start of any session. An AI that has read the SKILL and the spec has no room for interpretation errors.
+
+<p align="center">
+  <a href="SKILL.md"><img src="https://img.shields.io/badge/-Read%20the%20Skill-ff55ff?style=for-the-badge&labelColor=0f0f1a" alt="Read the Skill"/></a>
+</p>
+
+---
+
 This project is in early development. The format already works, but there is meaningful work left on semantic precision and completeness. Criticism and contributions are very welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get involved.
