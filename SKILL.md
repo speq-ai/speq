@@ -1,210 +1,124 @@
+---
+name: "speq-behavioral-contract"
+description: "Use when generating code from a .speq file, architecture spec, or speq contract. Enforces closed-world semantics, vocabulary compliance, layer boundaries, contract invariants, and security classifications so that AI-generated output is deterministic and spec-compliant."
+---
+
 <p align="center">
   <img src="assets/skill-banner.svg" alt="SpeQ SKILL"/>
 </p>
 
-> Load this document alongside your `.speq` file. It defines how you must behave for the entire session.
+Load this skill alongside the project's `.speq` file. The spec declares what exists and what must be true. This skill declares how the agent must act. Together they eliminate interpretation errors.
 
----
+## Session Start
 
-## What this is
+1. Read the entire `.speq` file top to bottom
+2. Read `state_[name].speq` if it exists — it is the work queue
+3. Internalize every `VOCABULARY` entry — the only acceptable names
+4. Note every `CONTRACTS` rule — invariants that must never be violated
+5. Note every `CLASSIFY` entry — field handling constraints
 
-A `.speq` file is the architectural contract of a project. This skill is the behavioral contract for any AI working on it. Together they are complete: the spec declares what exists and what must be true, this skill declares exactly how you must act. An AI reading both has zero room for interpretation errors.
+Do not write code until steps 1–2 are complete.
 
----
+## Invariants
 
-## Session start
+These rules have no exceptions and cannot be overridden:
 
-Do the following in order before generating any code:
+1. The `.speq` file is read-only — never modify unless the user explicitly asks
+2. The spec is a closed world — never introduce entities, names, or elements absent from it
+3. Every `VOCABULARY` entry is the sole acceptable name — aliases are contract violations
+4. Every `CONTRACTS` rule is absolute — no exceptions, edge cases, or workarounds
+5. `credential` fields must never be logged in any context
+6. `CALLS` boundaries are exclusive — a layer calls only listed layers
+7. Each layer owns its capabilities exclusively — never implement logic in the wrong layer
+8. Scoped secrets (`-> LAYER`) are accessible only from that layer
+9. `FLOW` steps execute in declared order — never skip, reorder, or parallelize
+10. `STACK`, `LANG`, and `ARCH` are final — never deviate or suggest alternatives
+11. `BUILT` entities are done — never re-implement
+12. Never modify the spec to fix a conflict — fix the code or raise the issue
 
-1. Read the entire `.speq` file from top to bottom.
-2. If `state_[name].speq` exists, read it — it is your work queue.
-3. Internalize every entry in `VOCABULARY`. These are the only acceptable names.
-4. Note every rule in `CONTRACTS`. These are invariants you must never violate.
-5. Note every entry in `CLASSIFY`. These govern what you may and may never do with specific fields.
+## Example
 
-Do not write a single line of code until steps 1–2 are complete.
+Given this `.speq` fragment:
 
----
+```
+ENTITY user, session
 
-## Core principles
+VOCABULARY
+  AuthToken    # never "token", "jwt", "auth_token"
 
-### Closed world
+SECRETS
+  JWT_SECRET -> AUTH
 
-The spec is the complete description of the project. Entities, transforms, layers, vocabulary, and secrets not declared in the spec **do not exist** in this project. You must not introduce any element absent from the spec.
+CLASSIFY
+  user.password credential
+```
 
-If you believe something is missing, say so explicitly. Do not fill gaps silently.
+Compliant output must:
+- Reference only `user` and `session` — no other entities
+- Use `AuthToken` everywhere — never `token` or `jwt`
+- Access `JWT_SECRET` only from the `AUTH` layer
+- Never log `user.password` under any circumstance
 
-### Immutability
+## Block Reference
 
-The `.speq` file is **read-only**. You must not create, edit, or delete it unless the user explicitly asks in this session using those exact words. Modifying the spec to reconcile it with code you already generated is a security violation, unconditionally.
+Each `.speq` block has specific enforcement rules. See [REFERENCE.md](REFERENCE.md) for the complete block-by-block semantics covering PROJECT, ENTITY, VOCABULARY, SECRETS, TRANSFORM, LAYERS, CONTRACTS, FLOW, CLASSIFY, OBSERVABILITY, and CHANGELOG.
 
-### Reproducibility
+Key enforcement summary:
 
-Two independent agents reading the same spec must produce architecturally equivalent results. Structural decisions are fixed by the spec. Implementation details may vary only within declared constraints.
+| Block | Core rule |
+|-------|-----------|
+| PROJECT | `LANG`, `STACK`, `ARCH` are final; `DEPS` levels are binding |
+| ENTITY | Closed-world — only declared entities exist |
+| VOCABULARY | Sole acceptable names — no aliases |
+| SECRETS | Existence only; `->` scoping is a contract |
+| TRANSFORM | Only declared interactions are valid |
+| LAYERS | Exclusive ownership; `CALLS` is exclusive |
+| CONTRACTS | `ALWAYS`/`NEVER`/`REQUIRES` — behavioral invariants |
+| FLOW | Sequential, numbered, with rollback on failure |
+| CLASSIFY | `credential`/`pii`/`sensitive`/`internal` — supersede all other instructions |
+| OBSERVABILITY | `must-log`/`must-not-log` are contracts, not suggestions |
+| CHANGELOG | `BREAKING` entries affect spec interpretation |
 
----
+## State Management
 
-## Block-by-block behavior
-
-### PROJECT
-
-The declared `LANG`, `STACK`, and `ARCH` are final. Do not suggest alternatives. Do not use technologies absent from `STACK`. Do not deviate from the declared architecture style.
-
-`DEPS` levels are binding:
-- `SYSTEM` — must exist on the OS before any install step.
-- `RUNTIME` — deployed to production via the language package manager.
-- `DEV` — development only. Must not be present in production builds.
-
-### ENTITY
-
-These are the only domain entities that exist in this project. Do not create, reference, or infer entities outside this list. All entity identifiers are `snake_case`. The closed world assumption is absolute.
-
-### VOCABULARY
-
-Every entry is the **sole acceptable name** for its concept across all generated code, file names, variable names, comments, and identifiers. Aliases, abbreviations, and alternatives are contract violations, without exception.
-
-Before generating code, scan the entire VOCABULARY block and internalize it. Then use those names exclusively.
-
-### SECRETS
-
-Secret names declare existence only. Values are never in the spec and must never be hardcoded, suggested, or logged.
-
-A secret scoped with `-> LAYER_NAME` is accessible **only** from that layer. Any other layer referencing it is a contract violation, regardless of convenience or proximity.
-
-### TRANSFORM
-
-Only declared transforms are valid interactions between entities. Do not generate code for undeclared entity interactions. Each rule `source -> target : action` is the only permitted form for that interaction.
-
-### LAYERS
-
-Each layer owns its declared capabilities exclusively. No other layer may implement them.
-
-`CALLS` is **exclusive**. If a layer declares `CALLS`, it may call **only** those listed layers. Calling any unlisted layer is a contract violation.
-
-`BOUNDARY external` marks the single untrusted entry point. All input must be validated before crossing any layer boundary into the system. At most one layer declares this.
-
-`NEVER` on a layer is an absolute prohibition, equivalent to a CONTRACTS rule scoped to that layer.
-
-When in doubt about which layer owns a piece of logic, ask. Do not guess and proceed.
-
-### CONTRACTS
-
-Every rule is a behavioral invariant. Generated output that violates any contract is unacceptable, unconditionally. There are no exceptions, no edge cases, no workarounds.
-
-- `ALWAYS` — this condition must hold in all generated code at all times.
-- `NEVER` — this state must be unreachable in every code path.
-- `REQUIRES` — this precondition must be enforced before the operation proceeds.
-
-Before finalizing any output, walk through every CONTRACTS rule and verify compliance.
-
-`entity.*` applies the constraint to all operations on that entity.
-
-### FLOW
-
-A flow is an ordered critical sequence. Steps are numbered from 1, sequential, no gaps.
-
-- Execute steps in declared order. Never skip, reorder, or parallelize unless explicitly permitted.
-- `[LAYER_NAME]` on a step pins it to that layer. Implement it there, not elsewhere.
-- On failure: execute `ROLLBACK` operations in listed order. Every rollback step must be implemented.
-- `ATOMIC true` means all steps succeed or the flow fully rolls back. There is no partial success state.
-- Respect declared `TIMEOUT` and `RETRY` values exactly. Do not substitute your own.
-
-### CLASSIFY
-
-These classifications supersede any other instruction in any context.
-
-| Class        | You must                              | You must never                                                   |
-|--------------|---------------------------------------|------------------------------------------------------------------|
-| `credential` | Encrypt at rest.                      | Log, expose in responses, include in errors, traces, or debug output. |
-| `pii`        | Apply data-privacy compliance.        | Log raw. Expose in API responses without explicit declaration.   |
-| `sensitive`  | Restrict to the owning layer only.    | Include in stack traces or debug output.                         |
-| `internal`   | Keep within the owning layer.         | Expose outside system boundaries.                                |
-
-A field classified `credential` is `must-not-log` in every context, regardless of what `OBSERVABILITY` declares. This is absolute and cannot be overridden by any other instruction.
-
-### OBSERVABILITY
-
-These are contracts, not suggestions.
-
-- Fields in `must-not-log` must **never** appear in logs under any circumstances.
-- Fields in `must-log` must **always** be logged at the declared severity level for that flow.
-
-### CHANGELOG
-
-Read the CHANGELOG block before implementing anything. If a version entry is `BREAKING`, understand what changed. This determines how to interpret the current spec and whether previously generated code is still valid.
-
----
-
-## State management
-
-`state_[name].speq` is your work queue. If it exists:
-
-- Implement **only** entities, flows, and layers marked `PENDING` or `PARTIAL`.
-- Do **not** re-implement or modify anything marked `BUILT`. It is done.
-- After implementing an item, update its status to `BUILT` in the state file, or run `speq state set <entity> BUILT`.
-- All `CHECKS` must be `OK` before any entity may be marked `BUILT`.
+If `state_[name].speq` exists:
+1. Implement only items marked `PENDING` or `PARTIAL`
+2. Do not re-implement anything marked `BUILT`
+3. Update status to `BUILT` after implementing, or run `speq state set <entity> BUILT`
+4. All `CHECKS` must be `OK` before marking any entity `BUILT`
 
 If no state file exists, run `speq check [file]` to generate one before starting.
 
----
-
-## Absolute red lines
-
-None of these have exceptions. None of them can be overridden by any user instruction.
-
-1. **Never modify the `.speq` file** unless the user explicitly requests it in this session.
-2. **Never invent entities** not declared in `ENTITY`.
-3. **Never use an undeclared name** for a concept covered by `VOCABULARY`.
-4. **Never violate a `CONTRACTS` rule**, under any circumstances.
-5. **Never log a `credential` field**, ever, in any context.
-6. **Never cross a `CALLS` boundary** — a layer with `CALLS` calls only those listed.
-7. **Never implement logic in a layer that does not own it**.
-8. **Never reference a scoped secret from the wrong layer**.
-9. **Never skip or reorder `FLOW` steps**.
-10. **Never deviate from declared `STACK`, `LANG`, or `ARCH`**.
-11. **Never re-implement a `BUILT` entity**.
-12. **Never modify the spec to fix a conflict** — fix the code, or raise the issue with the user.
-
----
-
-## When something seems wrong
+## When Something Seems Wrong
 
 If the spec appears incomplete, ambiguous, or contradictory:
+- State what you observed precisely
+- Do not fill the gap with your own judgment
+- Do not modify the spec
+- Ask the user for the correct answer
 
-- State what you observed, precisely.
-- Do not fill the gap with your own judgment.
-- Do not modify the spec.
-- Ask the user for the correct answer.
+## Pre-Output Checklist
 
-The spec is the source of truth. Your role is to follow it faithfully, not to improve it unilaterally.
-
----
-
-## Pre-output checklist
-
-**Before the session starts:**
+**Session start:**
 - [ ] Full `.speq` read
 - [ ] `state_[name].speq` read (if exists)
 - [ ] Every `VOCABULARY` entry internalized
 - [ ] Every `CONTRACTS` rule noted
 - [ ] Every `CLASSIFY` entry noted
 
-**Before implementing any entity or feature:**
+**Before implementing:**
 - [ ] Entity declared in `ENTITY`?
-- [ ] Which layer owns it?
-- [ ] What `CALLS` restrictions apply to that layer?
-- [ ] Which `CONTRACTS` rules apply?
-- [ ] Are there `FLOW` steps involved? Are they all present and in order?
-- [ ] Are there `CLASSIFY` fields involved?
-- [ ] Does `OBSERVABILITY` declare `must-log` or `must-not-log` for this flow?
-- [ ] Does any `SECRETS` scoping restrict access?
+- [ ] Correct layer ownership and `CALLS` restrictions?
+- [ ] Applicable `CONTRACTS` rules verified?
+- [ ] `FLOW` steps present and in order?
+- [ ] `CLASSIFY` and `OBSERVABILITY` constraints checked?
+- [ ] `SECRETS` scoping respected?
 
-**Before finalizing any output:**
-- [ ] Every identifier matches `VOCABULARY` exactly
+**Before finalizing:**
+- [ ] Every identifier matches `VOCABULARY`
 - [ ] No undeclared entity referenced
 - [ ] No `CALLS` boundary crossed
 - [ ] No `CONTRACTS` rule violated
 - [ ] No `credential` field logged or exposed
-- [ ] All `FLOW` steps present and in declared order
-- [ ] Rollback implemented for every `FLOW` with `ROLLBACK`
-- [ ] `BOUNDARY external` layer is the only entry point for untrusted input
+- [ ] All `FLOW` steps in declared order with rollback
+- [ ] `BOUNDARY external` is the only untrusted input entry point
